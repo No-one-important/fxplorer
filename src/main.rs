@@ -1,8 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod fss;
+use fss::Fst;
 
 use eframe::egui;
+use simple_home_dir::home_dir;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -13,10 +15,28 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "My egui App",
         options,
-        Box::new(|_cc| Box::<MyApp>::default()),
+        Box::new(|_cc| Box::<Fst>::default()),
     )
 }
 
+impl Default for Fst {
+    fn default() -> Self {
+        Self {
+            current_path: home_dir().unwrap().display().to_string(),
+            sub_items: vec![]
+        }
+    }
+}
+
+impl eframe::App for Fst {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading(&self.current_path);
+        });
+    }
+}
+
+/*
 struct MyApp {
     name: String,
     age: u32,
@@ -48,3 +68,4 @@ impl eframe::App for MyApp {
         });
     }
 }
+*/

@@ -967,6 +967,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "env_logger",
+ "simple-home-dir",
  "walkdir",
 ]
 
@@ -1932,6 +1933,15 @@ name = "simd-adler32"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "238abfbb77c1915110ad968465608b68e869e0772622c9656714e73e5a1a522f"
+
+[[package]]
+name = "simple-home-dir"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23d30dfeab3bcb5e341b053a3c7c54eaa68fe861e7817a3391e5298fe724ed25"
+dependencies = [
+ "windows-sys 0.48.0",
+]
 
 [[package]]
 name = "slab"

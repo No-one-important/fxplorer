@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use walkdir::WalkDir;
 
 //file system tree
-struct Fst {
-    current_path: String,
-    sub_items: Vec<String>
+pub struct Fst {
+    pub current_path: String,
+    pub sub_items: Vec<String>
 }
 
 impl Fst {
