@@ -5,6 +5,8 @@ use fss::Fst;
 
 use eframe::egui;
 use simple_home_dir::home_dir;
+use std::path::MAIN_SEPARATOR;
+use std::sync::mpsc;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -21,17 +23,46 @@ fn main() -> Result<(), eframe::Error> {
 
 impl Default for Fst {
     fn default() -> Self {
-        Self {
-            current_path: home_dir().unwrap().display().to_string(),
-            sub_items: vec![]
-        }
+        Self::new(home_dir().unwrap().display().to_string())
     }
 }
 
 impl eframe::App for Fst {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let mut cont = true;
+        while cont {
+        match self.rx.try_recv() {
+            Ok(x) => self.sub_items.push(x),
+            Err(_) => {cont = false}
+        }
+        }
+
+        // panel for search box
+        egui::SidePanel::right("search").show(ctx, |ui| {
+            let search_icon = "🔎️";
+            ui.text_edit_singleline(&mut self.search_term);
+            if ui.button(search_icon).clicked() {
+                self.search();
+            }
+        });
+
+        // panel to display items
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading(&self.current_path);
+            if ui.button("..").clicked() {
+                self.action("..");
+            }
+
+            let items = self.sub_items.clone();
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for item in items {
+                    let i: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
+
+                    if ui.button(i[i.len() - 1]).clicked() {
+                        self.action(&item);
+                    }
+                }
+            });
         });
     }
 }
