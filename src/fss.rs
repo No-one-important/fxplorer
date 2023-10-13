@@ -84,12 +84,8 @@ impl Fst {
             None => {}
         };
 
-        if path == ".." {
-            self.change_dir(path)
-        }
-
-        let md = fs::metadata(path).unwrap();
-        if md.is_dir() {
+        let md = fs::metadata(&path).unwrap();
+        if md.is_dir() || path == ".." {
             self.change_dir(path);
         } else {
             //open file

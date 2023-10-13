@@ -6,7 +6,6 @@ use fss::Fst;
 use eframe::egui;
 use simple_home_dir::home_dir;
 use std::path::MAIN_SEPARATOR;
-use std::sync::mpsc;
 
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
