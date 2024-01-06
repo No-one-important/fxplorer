@@ -10,7 +10,7 @@ use std::path::MAIN_SEPARATOR;
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
-        initial_window_size: Some(egui::vec2(320.0, 240.0)),
+        initial_window_size: Some(egui::vec2(640.0, 480.0)),
         ..Default::default()
     };
     eframe::run_native("Fxplorer", options, Box::new(|_cc| Box::<Fst>::default()))
