@@ -7,18 +7,40 @@ use eframe::egui;
 use simple_home_dir::home_dir;
 use std::path::MAIN_SEPARATOR;
 
+use clap::Parser;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short = 'a', long)]
+    show_hidden_files: bool,
+
+    #[arg(short = 'd', long)]
+    cwd: Option<String>,
+}
+
 fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(640.0, 480.0)),
         ..Default::default()
     };
-    eframe::run_native("Fxplorer", options, Box::new(|_cc| Box::<Fst>::default()))
+
+    let args = Args::parse();
+
+    // TODO: fix relative paths
+    let fst = match args.cwd {
+        Some(cwd) => Box::<Fst>::new(Fst::new(cwd, args.show_hidden_files)),
+        None => Box::<Fst>::new(Fst::new(home_dir().unwrap().display().to_string(), args.show_hidden_files))
+    };
+
+    eframe::run_native("Fxplorer", options, Box::new(|_cc| fst))
 }
 
 impl Default for Fst {
     fn default() -> Self {
-        Self::new(home_dir().unwrap().display().to_string())
+        Self::new(home_dir().unwrap().display().to_string(), false)
     }
 }
 

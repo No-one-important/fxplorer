@@ -16,10 +16,11 @@ pub struct Fst {
     pub tx: Sender<String>,
     pub rx: Receiver<String>,
     pub stop_tx: Option<Sender<bool>>,
+    pub show_hidden_files: bool,
 }
 
 impl Fst {
-    pub fn new(path: String) -> Self {
+    pub fn new(path: String, show_hidden_files: bool) -> Self {
         let (tx, rx) = mpsc::channel::<String>();
 
         let mut tree = Fst {
@@ -29,6 +30,7 @@ impl Fst {
             tx: tx,
             rx: rx,
             stop_tx: None,
+            show_hidden_files: show_hidden_files,
         };
 
         tree.generate_sub_items();
@@ -41,8 +43,29 @@ impl Fst {
         self.sub_items = vec![];
 
         for item in dir {
-            self.sub_items
-                .push(item.unwrap().path().display().to_string());
+            let path = item.unwrap().path().display().to_string();
+
+            if self.show_hidden_files {
+                self.sub_items
+                    .push(path);
+            } else {
+                #[cfg(windows)]
+                {
+                    if !is_hidden(&path).unwrap_or(true) {
+                        self.sub_items
+                            .push(path);
+                    }
+                }
+                #[cfg(unix)]
+                {
+                    let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
+
+                    if i[i.len() - 1].starts_with('.') {
+                        self.sub_items
+                            .push(path);
+                    }
+                }
+            }
         }
     }
 
@@ -101,8 +124,10 @@ impl Fst {
         let (s_tx, s_rx) = mpsc::channel::<bool>();
         self.stop_tx = Some(s_tx);
 
+        let show_hidden_files = self.show_hidden_files;
         thread::spawn(move || {
             for item in WalkDir::new(path) {
+
                 let mut stop: bool = false;
                 match s_rx.try_recv() {
                     Ok(x) => {
@@ -116,6 +141,30 @@ impl Fst {
                 }
 
                 let item_path: String = item.unwrap().path().display().to_string();
+
+                if !show_hidden_files {
+                    #[cfg(windows)]
+                    {
+                        let metadata = match fs::metadata(&item_path) {
+                            Ok(x) => x,
+                            Err(_) => continue,
+                        };
+
+                        if (metadata.file_attributes() & 0x2) > 0 {
+                            continue;
+                        }
+                    }
+                    #[cfg(unix)]
+                    {
+                        let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
+
+                        if i[i.len() - 1].starts_with('.') {
+                            continue;
+                        }
+                    }
+                }
+
+
                 let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
 
                 if i[i.len() - 1].contains(&search_term) {
@@ -136,5 +185,20 @@ impl StrExt for str {
             Some((i, _)) => &self[..i],
             None => self,
         }
+    }
+}
+
+#[cfg(windows)]
+use std::os::windows::prelude::*;
+
+#[cfg(windows)]
+pub fn is_hidden(file_path: &str) -> std::io::Result<bool> {
+    let metadata = fs::metadata(file_path)?;
+    let attributes = metadata.file_attributes();
+
+    if (attributes & 0x2) > 0 {
+        Ok(true)
+    } else {
+        Ok(false)
     }
 }
