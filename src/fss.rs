@@ -75,7 +75,6 @@ impl Fst {
 
     // open if file change dir if folder
     pub fn action(&mut self, path: &str) {
-
         match self.stop_tx.clone() {
             Some(s_tx) => {
                 s_tx.send(true).unwrap();

@@ -13,11 +13,7 @@ fn main() -> Result<(), eframe::Error> {
         initial_window_size: Some(egui::vec2(320.0, 240.0)),
         ..Default::default()
     };
-    eframe::run_native(
-        "My egui App",
-        options,
-        Box::new(|_cc| Box::<Fst>::default()),
-    )
+    eframe::run_native("Fxplorer", options, Box::new(|_cc| Box::<Fst>::default()))
 }
 
 impl Default for Fst {
@@ -30,30 +26,35 @@ impl eframe::App for Fst {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut cont = true;
         while cont {
-        match self.rx.try_recv() {
-            Ok(x) => self.sub_items.push(x),
-            Err(_) => {cont = false}
-        }
-        }
-
-        // panel for search box
-        egui::SidePanel::right("search").show(ctx, |ui| {
-            let search_icon = "🔎️";
-            ui.text_edit_singleline(&mut self.search_term);
-            if ui.button(search_icon).clicked() {
-                self.search();
+            match self.rx.try_recv() {
+                Ok(x) => self.sub_items.push(x),
+                Err(_) => cont = false,
             }
-        });
+        }
 
         // panel to display items
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(&self.current_path);
+            // search bar and cwd
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::TOP), |ui| {
+                let search_icon = "🔎︎";
+                if ui.button(search_icon).clicked() {
+                    self.search();
+                }
+
+                ui.text_edit_singleline(&mut self.search_term);
+
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                    ui.heading(&self.current_path);}
+                );
+            });
+
+            ui.visuals_mut().button_frame = false;
             if ui.button("..").clicked() {
                 self.action("..");
             }
 
             let items = self.sub_items.clone();
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 for item in items {
                     let i: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
 
