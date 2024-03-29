@@ -78,9 +78,17 @@ impl eframe::App for Fst {
             let items = self.sub_items.clone();
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 for item in items {
-                    let i: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
+                    let display_name;
 
-                    if ui.button(i[i.len() - 1]).clicked() {
+                    if !self.searching {
+                        // display file name without path
+                        let path_segments: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
+                        display_name = path_segments[path_segments.len() - 1];
+                    } else {
+                        display_name = &item[self.current_path.len()..];
+                    }
+                    
+                    if ui.button(display_name).clicked() {
                         self.action(&item);
                     }
                 }

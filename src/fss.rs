@@ -17,6 +17,7 @@ pub struct Fst {
     pub rx: Receiver<String>,
     pub stop_tx: Option<Sender<bool>>,
     pub show_hidden_files: bool,
+    pub searching: bool,  // show full relative file paths when searching
 }
 
 impl Fst {
@@ -31,6 +32,7 @@ impl Fst {
             rx: rx,
             stop_tx: None,
             show_hidden_files: show_hidden_files,
+            searching: false,
         };
 
         tree.generate_sub_items();
@@ -58,9 +60,9 @@ impl Fst {
                 }
                 #[cfg(unix)]
                 {
-                    let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
+                    let i: Vec<&str> = path.split(MAIN_SEPARATOR).collect();
 
-                    if i[i.len() - 1].starts_with('.') {
+                    if !i[i.len() - 1].starts_with('.') {
                         self.sub_items
                             .push(path);
                     }
@@ -98,6 +100,8 @@ impl Fst {
 
     // open if file change dir if folder
     pub fn action(&mut self, path: &str) {
+        self.searching = false;
+
         match self.stop_tx.clone() {
             Some(s_tx) => {
                 s_tx.send(true).unwrap();
@@ -117,6 +121,8 @@ impl Fst {
 
     // TODO: add regex support
     pub fn search(&mut self) {
+        self.searching = true;
+
         self.sub_items = vec![];
         let tx = self.tx.clone();
         let path = self.current_path.clone();
