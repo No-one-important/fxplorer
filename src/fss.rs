@@ -28,16 +28,16 @@ impl Fst {
             current_path: path,
             sub_items: vec![],
             search_term: String::new(),
-            tx: tx,
-            rx: rx,
+            tx,
+            rx,
             stop_tx: None,
-            show_hidden_files: show_hidden_files,
+            show_hidden_files,
             searching: false,
         };
 
         tree.generate_sub_items();
 
-        return tree;
+        tree
     }
 
     pub fn generate_sub_items(&mut self) {
@@ -47,12 +47,8 @@ impl Fst {
         for item in dir {
             let path = item.unwrap().path().display().to_string();
 
-            if self.show_hidden_files {
+            if self.show_hidden_files || !is_hidden(&path) {
                 self.sub_items.push(path);
-            } else {
-                if !is_hidden(&path) {
-                    self.sub_items.push(path);
-                }
             }
         }
     }
@@ -64,7 +60,7 @@ impl Fst {
             let mut path = String::new();
 
             for i in 0..(cps.len() - 1) {
-                path = path + cps[i] + &MAIN_SEPARATOR.to_string();
+                path = path + cps[i] + std::path::MAIN_SEPARATOR_STR;
             }
             self.current_path = path;
         } else {
@@ -77,8 +73,8 @@ impl Fst {
         }
 
         // add slash if windows disk letter
-        if self.current_path.ends_with(":") {
-            self.current_path = self.current_path.clone() + &MAIN_SEPARATOR.to_string();
+        if self.current_path.ends_with(':') {
+            self.current_path = self.current_path.clone() + std::path::MAIN_SEPARATOR_STR;
         }
 
         self.generate_sub_items();
@@ -88,7 +84,7 @@ impl Fst {
     pub fn action(&mut self, path: &str) {
         self.stop_search();
 
-        let md = fs::metadata(&path).unwrap();
+        let md = fs::metadata(path).unwrap();
         if md.is_dir() || path == ".." {
             self.change_dir(path);
         } else {
@@ -114,16 +110,15 @@ impl Fst {
         let show_hidden_files = self.show_hidden_files;
         thread::spawn(move || {
             // dont search in hidden dirs if not showing hidden files
-            let walker = WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e.path().to_str().unwrap_or("")) || show_hidden_files);
+            let walker = WalkDir::new(path)
+                .into_iter()
+                .filter_entry(|e| !is_hidden(e.path().to_str().unwrap_or("")) || show_hidden_files);
 
             for item in walker {
                 let mut stop: bool = false;
-                match s_rx.try_recv() {
-                    Ok(x) => {
-                        stop = x;
-                    }
-                    Err(_) => {}
-                };
+                if let Ok(x) = s_rx.try_recv() {
+                    stop = x;
+                }
 
                 if stop {
                     break;
@@ -131,10 +126,8 @@ impl Fst {
 
                 let item_path: String = item.unwrap().path().display().to_string();
 
-                if !show_hidden_files {
-                    if is_hidden(&item_path) {
-                        continue;
-                    }
+                if !show_hidden_files && is_hidden(&item_path) {
+                    continue;
                 }
 
                 let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
@@ -143,12 +136,12 @@ impl Fst {
                     tx.send(item_path).unwrap();
                 }
             }
-            
-//            self.searching = false;
+
+            //            self.searching = false;
         });
     }
 
-    fn stop_search(self: &mut Self) {
+    fn stop_search(&mut self) {
         if self.searching {
             self.searching = false;
 
@@ -181,15 +174,11 @@ fn is_hidden(file_path: &str) -> bool {
         Err(_) => {
             println!("error getting metadata for: {file_path}");
             return false;
-        }, // dont show error files
+        } // dont show error files
     };
     let attributes = metadata.file_attributes();
 
-    if (attributes & 0x2) > 0 {
-        true
-    } else {
-        false
-    }
+    (attributes & 0x2) > 0
 }
 
 #[cfg(unix)]

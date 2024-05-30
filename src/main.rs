@@ -81,15 +81,13 @@ impl eframe::App for Fst {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     for item in items {
-                        let display_name;
-
-                        if !self.searching {
+                        let display_name = if !self.searching {
                             // display file name without path
                             let path_segments: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
-                            display_name = path_segments[path_segments.len() - 1];
+                            path_segments[path_segments.len() - 1]
                         } else {
-                            display_name = &item[self.current_path.len()..];
-                        }
+                            &item[self.current_path.len()..]
+                        };
 
                         if ui.button(display_name).clicked() {
                             self.action(&item);
