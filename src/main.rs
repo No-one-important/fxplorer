@@ -9,7 +9,6 @@ use std::path::MAIN_SEPARATOR;
 
 use clap::Parser;
 
-/// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -21,7 +20,6 @@ struct Args {
 }
 
 fn main() -> Result<(), eframe::Error> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(640.0, 480.0)),
         ..Default::default()
@@ -32,7 +30,10 @@ fn main() -> Result<(), eframe::Error> {
     // TODO: fix relative paths
     let fst = match args.cwd {
         Some(cwd) => Box::<Fst>::new(Fst::new(cwd, args.show_hidden_files)),
-        None => Box::<Fst>::new(Fst::new(home_dir().unwrap().display().to_string(), args.show_hidden_files))
+        None => Box::<Fst>::new(Fst::new(
+            home_dir().unwrap().display().to_string(),
+            args.show_hidden_files,
+        )),
     };
 
     eframe::run_native("Fxplorer", options, Box::new(|_cc| fst))
@@ -66,8 +67,8 @@ impl eframe::App for Fst {
                 ui.text_edit_singleline(&mut self.search_term);
 
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
-                    ui.heading(&self.current_path);}
-                );
+                    ui.heading(&self.current_path);
+                });
             });
 
             ui.visuals_mut().button_frame = false;
@@ -76,23 +77,25 @@ impl eframe::App for Fst {
             }
 
             let items = self.sub_items.clone();
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                for item in items {
-                    let display_name;
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    for item in items {
+                        let display_name;
 
-                    if !self.searching {
-                        // display file name without path
-                        let path_segments: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
-                        display_name = path_segments[path_segments.len() - 1];
-                    } else {
-                        display_name = &item[self.current_path.len()..];
+                        if !self.searching {
+                            // display file name without path
+                            let path_segments: Vec<&str> = item.split(MAIN_SEPARATOR).collect();
+                            display_name = path_segments[path_segments.len() - 1];
+                        } else {
+                            display_name = &item[self.current_path.len()..];
+                        }
+
+                        if ui.button(display_name).clicked() {
+                            self.action(&item);
+                        }
                     }
-                    
-                    if ui.button(display_name).clicked() {
-                        self.action(&item);
-                    }
-                }
-            });
+                });
         });
     }
 }

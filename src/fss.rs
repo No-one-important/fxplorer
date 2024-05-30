@@ -17,7 +17,7 @@ pub struct Fst {
     pub rx: Receiver<String>,
     pub stop_tx: Option<Sender<bool>>,
     pub show_hidden_files: bool,
-    pub searching: bool,  // show full relative file paths when searching
+    pub searching: bool, // show full relative file paths when searching
 }
 
 impl Fst {
@@ -48,24 +48,10 @@ impl Fst {
             let path = item.unwrap().path().display().to_string();
 
             if self.show_hidden_files {
-                self.sub_items
-                    .push(path);
+                self.sub_items.push(path);
             } else {
-                #[cfg(windows)]
-                {
-                    if !is_hidden(&path).unwrap_or(true) {
-                        self.sub_items
-                            .push(path);
-                    }
-                }
-                #[cfg(unix)]
-                {
-                    let i: Vec<&str> = path.split(MAIN_SEPARATOR).collect();
-
-                    if !i[i.len() - 1].starts_with('.') {
-                        self.sub_items
-                            .push(path);
-                    }
+                if !is_hidden(&path) {
+                    self.sub_items.push(path);
                 }
             }
         }
@@ -100,15 +86,7 @@ impl Fst {
 
     // open if file change dir if folder
     pub fn action(&mut self, path: &str) {
-        self.searching = false;
-
-        match self.stop_tx.clone() {
-            Some(s_tx) => {
-                s_tx.send(true).unwrap();
-                self.stop_tx = None;
-            }
-            None => {}
-        };
+        self.stop_search();
 
         let md = fs::metadata(&path).unwrap();
         if md.is_dir() || path == ".." {
@@ -121,6 +99,9 @@ impl Fst {
 
     // TODO: add regex support
     pub fn search(&mut self) {
+        //stop other searches
+        self.stop_search();
+
         self.searching = true;
 
         self.sub_items = vec![];
@@ -132,8 +113,10 @@ impl Fst {
 
         let show_hidden_files = self.show_hidden_files;
         thread::spawn(move || {
-            for item in WalkDir::new(path) {
+            // dont search in hidden dirs if not showing hidden files
+            let walker = WalkDir::new(path).into_iter().filter_entry(|e| !is_hidden(e.path().to_str().unwrap_or("")) || show_hidden_files);
 
+            for item in walker {
                 let mut stop: bool = false;
                 match s_rx.try_recv() {
                     Ok(x) => {
@@ -149,27 +132,10 @@ impl Fst {
                 let item_path: String = item.unwrap().path().display().to_string();
 
                 if !show_hidden_files {
-                    #[cfg(windows)]
-                    {
-                        let metadata = match fs::metadata(&item_path) {
-                            Ok(x) => x,
-                            Err(_) => continue,
-                        };
-
-                        if (metadata.file_attributes() & 0x2) > 0 {
-                            continue;
-                        }
-                    }
-                    #[cfg(unix)]
-                    {
-                        let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
-
-                        if i[i.len() - 1].starts_with('.') {
-                            continue;
-                        }
+                    if is_hidden(&item_path) {
+                        continue;
                     }
                 }
-
 
                 let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
 
@@ -177,7 +143,18 @@ impl Fst {
                     tx.send(item_path).unwrap();
                 }
             }
+            
+//            self.searching = false;
         });
+    }
+
+    fn stop_search(self: &mut Self) {
+        if self.searching {
+            self.searching = false;
+
+            self.stop_tx.clone().unwrap().send(true).ok(); // fails if search finished
+            self.stop_tx = None;
+        }
     }
 }
 
@@ -198,13 +175,26 @@ impl StrExt for str {
 use std::os::windows::prelude::*;
 
 #[cfg(windows)]
-pub fn is_hidden(file_path: &str) -> std::io::Result<bool> {
-    let metadata = fs::metadata(file_path)?;
+fn is_hidden(file_path: &str) -> bool {
+    let metadata = match fs::metadata(file_path) {
+        Ok(x) => x,
+        Err(_) => {
+            println!("error getting metadata for: {file_path}");
+            return false;
+        }, // dont show error files
+    };
     let attributes = metadata.file_attributes();
 
     if (attributes & 0x2) > 0 {
-        Ok(true)
+        true
     } else {
-        Ok(false)
+        false
     }
+}
+
+#[cfg(unix)]
+fn is_hidden(file_path: &str) -> bool {
+    let i: Vec<&str> = item_path.split(MAIN_SEPARATOR).collect();
+
+    i[i.len() - 1].starts_with('.')
 }
